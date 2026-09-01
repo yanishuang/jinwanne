@@ -11,6 +11,7 @@ tmp/
 **/xcuserdata/
 output/*.zip
 output/ios-*.png
+release/
 *.sqlite
 *.sqlite-*
 *.db

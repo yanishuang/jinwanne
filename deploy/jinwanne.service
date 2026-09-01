@@ -1,0 +1,36 @@
+[Unit]
+Description=Jinwanne private journal service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=jinwanne
+Group=jinwanne
+WorkingDirectory=/opt/jinwanne/current
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=PORT=3356
+Environment=DATABASE_PATH=/var/lib/jinwanne/journal.sqlite
+Environment=APP_ORIGIN=https://jinwanne.woaizhuzhu.com
+Environment=COOKIE_SECURE=true
+Environment=TRUST_PROXY=1
+Environment=TZ=Asia/Shanghai
+ExecStart=/opt/node-v24.20.0-linux-x64-glibc-217/bin/node server/index.mjs
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=15
+KillSignal=SIGTERM
+UMask=0077
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectHome=true
+ProtectSystem=full
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target

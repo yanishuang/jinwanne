@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="今晚呢匿名排行榜。只看自愿参与者公开的成功与拒绝天数，不公开私人记录。">
+  <meta name="theme-color" content="#1457d9">
+  <title>匿名排行榜 · 今晚呢</title>
+  <link rel="icon" href="/icon-192.png" sizes="192x192">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="stylesheet" href="/site.css">
+  <script src="/leaderboard.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="今晚呢排行榜首页">
+      <img src="/icon-192.png" alt="" width="38" height="38">
+      <span>今晚呢</span>
+    </a>
+    <nav aria-label="网站导航">
+      <a aria-current="page" href="/">排行榜</a>
+      <a href="/privacy">隐私</a>
+      <a href="/support">支持</a>
+    </nav>
+  </header>
+
+  <main class="leaderboard-page">
+    <div class="page-heading">
+      <p class="eyebrow">ANONYMOUS LEADERBOARD</p>
+      <h1>匿名排行榜</h1>
+      <p>只晒天数，不晒家事。</p>
+    </div>
+
+    <section class="board" aria-labelledby="board-title">
+      <h2 id="board-title" class="visually-hidden">排行榜筛选与结果</h2>
+      <div class="metric-tabs" role="tablist" aria-label="榜单类型">
+        <button type="button" role="tab" aria-selected="true" data-metric="success">成功天数榜</button>
+        <button type="button" role="tab" aria-selected="false" data-metric="declined">拒绝天数榜</button>
+      </div>
+      <div class="period-tabs" aria-label="统计周期">
+        <button type="button" class="active" data-period="month">本月</button>
+        <button type="button" data-period="year">今年</button>
+        <button type="button" data-period="all">全部</button>
+      </div>
+
+      <div class="board-meta" aria-live="polite">
+        <span id="range-label">正在读取排行榜…</span>
+        <span id="participant-count"></span>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">排名</th><th scope="col">用户名</th><th scope="col">天数</th></tr></thead>
+          <tbody id="ranking-rows"></tbody>
+        </table>
+        <div id="board-state" class="board-state" role="status">正在读取排行榜…</div>
+      </div>
+
+      <p class="board-note">榜单仅包含主动参与的用户，只公开用户名和汇总天数。数据由用户自行记录，仅供趣味参考。</p>
+    </section>
+  </main>
+
+  <footer>
+    <span>© 2026 今晚呢</span>
+    <span><a href="/privacy">隐私政策</a><a href="/support">用户支持</a></span>
+  </footer>
+</body>
+</html>

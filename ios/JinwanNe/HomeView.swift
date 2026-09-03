@@ -24,11 +24,14 @@ struct HomeView: View {
                         .buttonStyle(PrimaryButtonStyle())
                 }
                 Spacer()
-                Text("私人记录 · 双方自愿")
-                    .font(.caption2)
-                    .tracking(0.4)
-                    .foregroundStyle(AppPalette.muted.opacity(0.75))
-                    .padding(.bottom, 12)
+                VStack(spacing: 5) {
+                    Text("私人记录 · 双方自愿")
+                    Link("浙ICP备2026018883号-4A", destination: URL(string: "https://beian.miit.gov.cn/")!)
+                }
+                .font(.caption2)
+                .tracking(0.4)
+                .foregroundStyle(AppPalette.muted.opacity(0.75))
+                .padding(.bottom, 12)
             }
             .padding(.horizontal, 30)
         }

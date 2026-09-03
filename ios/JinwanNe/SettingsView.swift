@@ -88,6 +88,12 @@ struct SettingsView: View {
             .font(.caption)
             .foregroundStyle(AppPalette.muted)
 
+            Section("关于") {
+                Link("隐私政策", destination: URL(string: "https://jinwanne.woaizhuzhu.com/privacy")!)
+                Link("用户支持", destination: URL(string: "https://jinwanne.woaizhuzhu.com/support")!)
+                Link("浙ICP备2026018883号-4A", destination: URL(string: "https://beian.miit.gov.cn/")!)
+            }
+
             Section {
                 Button("删除全部数据", role: .destructive) { showDeleteConfirmation = true }
                     .disabled(model.isSaving)

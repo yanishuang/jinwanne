@@ -14,7 +14,7 @@ struct SettingsView: View {
                 NavigationLink {
                     HistoryView()
                 } label: {
-                    Label("我的记录", systemImage: "calendar")
+                    Label("我的小本本", systemImage: "book.closed")
                 }
             }
 
@@ -23,6 +23,7 @@ struct SettingsView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .focused($aliasFocused)
+                    .disabled(!model.canSave)
                     .submitLabel(.done)
                     .onSubmit(saveAlias)
                     .onChange(of: aliasDraft) { _, value in
@@ -33,7 +34,7 @@ struct SettingsView: View {
                 HStack {
                     Button("保存用户名", action: saveAlias)
                         .foregroundStyle(AppPalette.blue)
-                        .disabled(model.isSaving || aliasDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .disabled(!model.canSave || aliasDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     Spacer()
                     if aliasSaved {
                         Label("已保存", systemImage: "checkmark")
@@ -53,14 +54,14 @@ struct SettingsView: View {
                 }
                 .font(.footnote)
                 .foregroundStyle(AppPalette.muted)
-                .disabled(model.isSaving)
+                .disabled(!model.canSave)
             } header: {
                 Text("用户名")
             } footer: {
                 Text("用户名会显示在排行榜。使用 2–16 个中文、字母或数字，也可以包含空格、_、-、·；不能与其他用户重复。")
             }
 
-            Section("匿名排行") {
+            Section("匿名排行 · 自愿公开") {
                 if let profile = model.session?.profile {
                     VStack(alignment: .leading, spacing: 7) {
                         Text(profile.alias).font(.subheadline.weight(.medium))
@@ -72,11 +73,11 @@ struct SettingsView: View {
                         Button("退出排行榜", role: .destructive) {
                             Task { _ = await model.updateProfile(participating: false) }
                         }
-                        .disabled(model.isSaving)
+                        .disabled(!model.canSave)
                     } else {
                         Button("开启匿名排行") { showJoinConfirmation = true }
                             .foregroundStyle(AppPalette.blue)
-                            .disabled(model.isSaving)
+                            .disabled(!model.canSave)
                     }
                 }
             }
@@ -96,7 +97,7 @@ struct SettingsView: View {
 
             Section {
                 Button("删除全部数据", role: .destructive) { showDeleteConfirmation = true }
-                    .disabled(model.isSaving)
+                    .disabled(!model.canSave)
             } footer: {
                 Text("删除当前匿名身份、全部记录和排名信息，无法撤销。")
             }
@@ -112,12 +113,14 @@ struct SettingsView: View {
         }
         .confirmationDialog("开启匿名排行？", isPresented: $showJoinConfirmation, titleVisibility: .visible) {
             Button("同意并开启") { Task { _ = await model.updateProfile(participating: true) } }
+                .disabled(!model.canSave)
             Button("取消", role: .cancel) {}
         } message: {
             Text("排行榜会公开你的用户名以及成功、失败天数，不公开日期和备注。请勿使用真实姓名或联系方式，可随时退出。")
         }
         .alert("永久删除全部数据？", isPresented: $showDeleteConfirmation) {
             Button("永久删除", role: .destructive) { Task { _ = await model.eraseAccount() } }
+                .disabled(!model.canSave)
             Button("取消", role: .cancel) {}
         } message: {
             Text("此操作无法撤销。")

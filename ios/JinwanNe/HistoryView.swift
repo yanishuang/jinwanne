@@ -7,6 +7,11 @@ struct HistoryView: View {
     @State private var loading = false
     @State private var errorMessage: String?
     @State private var deleting: Entry?
+    @State private var requestID = UUID()
+
+    private var taskKey: String {
+        "\(month)-\(model.recordsRevision)-\(model.session?.profile.alias ?? "")"
+    }
 
     var body: some View {
         List {
@@ -14,25 +19,27 @@ struct HistoryView: View {
                 Picker("查看月份", selection: $month) {
                     ForEach(availableMonths, id: \.self) { Text(monthLabel($0)).tag($0) }
                 }
+                .disabled(model.isSaving)
             }
 
             if loading {
                 HStack { Spacer(); ProgressView(); Spacer() }
             } else if let errorMessage {
                 ContentUnavailableView("暂时无法读取", systemImage: "wifi.exclamationmark", description: Text(errorMessage))
+                Button("重新读取") { Task { await load() } }
             } else if let diary {
                 Section {
                     HStack {
                         stat(title: "成功天数", value: diary.stats.success)
                         Divider()
-                        stat(title: "失败天数", value: diary.stats.declined)
+                        stat(title: "被拒绝天数", value: diary.stats.declined)
                     }
                     .frame(height: 82)
                 }
 
                 Section("每日结果") {
                     if diary.records.isEmpty {
-                        Text("这个月还没有记录。")
+                        Text("小本本还是空的。首页选好结果，这里就有记录了。")
                             .foregroundStyle(AppPalette.muted)
                     }
                     ForEach(diary.records) { entry in
@@ -45,26 +52,33 @@ struct HistoryView: View {
                         }
                         .swipeActions(edge: .trailing) {
                             Button("删除", role: .destructive) { deleting = entry }
+                                .disabled(!model.canSave)
                         }
                         .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                            Button("成功") { Task { await change(entry, to: .success) } }.tint(AppPalette.blue)
-                            Button("失败") { Task { await change(entry, to: .declined) } }.tint(AppPalette.muted)
+                            Button("成功") { Task { await change(entry, to: .success) } }
+                                .tint(AppPalette.blue)
+                                .disabled(!model.canSave)
+                            Button("失败") { Task { await change(entry, to: .declined) } }
+                                .tint(AppPalette.muted)
+                                .disabled(!model.canSave)
                         }
                     }
                 }
             }
         }
-        .navigationTitle("我的记录")
+        .navigationTitle("我的小本本")
+        .refreshable { await load() }
         .navigationBarTitleDisplayMode(.inline)
         .task {
             if month.isEmpty { month = model.session.map { String($0.today.prefix(7)) } ?? "" }
         }
-        .task(id: month) { if !month.isEmpty { await load() } }
+        .task(id: taskKey) { await load() }
         .alert("删除这一天？", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
             Button("删除", role: .destructive) {
                 guard let deleting else { return }
                 Task { await remove(deleting) }
             }
+            .disabled(!model.canSave)
             Button("取消", role: .cancel) { deleting = nil }
         } message: {
             Text("统计和排行榜也会随之更新。")
@@ -81,6 +95,7 @@ struct HistoryView: View {
         let formatter = DateFormatter()
         formatter.calendar = calendar
         formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = calendar.timeZone
         formatter.dateFormat = "yyyy-MM"
         return (0..<24).compactMap { calendar.date(byAdding: .month, value: -$0, to: start) }.map(formatter.string)
     }
@@ -100,27 +115,37 @@ struct HistoryView: View {
     }
 
     private func load() async {
-        loading = true
+        let id = UUID()
+        requestID = id
+        let requestedMonth = month
+        let revision = model.recordsRevision
+        diary = nil
         errorMessage = nil
-        do { diary = try await APIClient.shared.records(month: month) }
-        catch { errorMessage = error.localizedDescription }
-        loading = false
+        guard model.session != nil, !requestedMonth.isEmpty else {
+            loading = false
+            return
+        }
+        loading = true
+        defer { if requestID == id { loading = false } }
+        do {
+            let response = try await APIClient.shared.records(month: requestedMonth)
+            guard !Task.isCancelled, requestID == id,
+                  month == requestedMonth, model.recordsRevision == revision else { return }
+            diary = response
+        } catch {
+            guard !Task.isCancelled, requestID == id,
+                  month == requestedMonth, model.recordsRevision == revision else { return }
+            errorMessage = error.localizedDescription
+        }
     }
 
     private func change(_ entry: Entry, to outcome: Outcome) async {
-        do {
-            try await APIClient.shared.save(date: entry.date, outcome: outcome, note: entry.note)
-            await load()
-            if month == (model.session.map { String($0.today.prefix(7)) } ?? "") { try? await model.loadCurrentMonth() }
-        } catch { errorMessage = error.localizedDescription }
+        _ = await model.changeRecord(date: entry.date, outcome: outcome, note: entry.note)
     }
 
     private func remove(_ entry: Entry) async {
-        do {
-            try await APIClient.shared.delete(date: entry.date)
+        if await model.deleteRecord(date: entry.date) {
             deleting = nil
-            await load()
-            if month == (model.session.map { String($0.today.prefix(7)) } ?? "") { try? await model.loadCurrentMonth() }
-        } catch { errorMessage = error.localizedDescription }
+        }
     }
 }

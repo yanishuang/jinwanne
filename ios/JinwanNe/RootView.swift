@@ -9,6 +9,7 @@ enum AppPalette {
 
 struct RootView: View {
     @EnvironmentObject private var model: AppModel
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         TabView {
@@ -19,6 +20,9 @@ struct RootView: View {
         }
         .tint(AppPalette.blue)
         .preferredColorScheme(.light)
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await model.refresh() } }
+        }
         .overlay(alignment: .top) {
             if let message = model.errorMessage {
                 ErrorBanner(message: message) { model.errorMessage = nil }

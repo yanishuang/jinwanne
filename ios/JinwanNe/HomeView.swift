@@ -61,7 +61,7 @@ struct HomeView: View {
         }
         .background(Color.white)
         .refreshable { await model.refresh() }
-        .navigationTitle(L10n.text("今晚呢", "Tonight?"))
+        .navigationTitle(L10n.text("今晚呢", "Maybe Tonight"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {

@@ -14,9 +14,9 @@ struct RootView: View {
     var body: some View {
         TabView {
             NavigationStack { HomeView() }
-                .tabItem { Label("记录", systemImage: "checklist") }
+                .tabItem { Label(L10n.text("记录", "Tonight"), systemImage: "checklist") }
             NavigationStack { LeaderboardView() }
-                .tabItem { Label("排行榜", systemImage: "chart.bar") }
+                .tabItem { Label(L10n.text("排行榜", "Leaderboard"), systemImage: "chart.bar") }
         }
         .tint(AppPalette.blue)
         .preferredColorScheme(.light)
@@ -43,7 +43,7 @@ struct ErrorBanner: View {
             Image(systemName: "exclamationmark.circle")
             Text(message).font(.footnote).frame(maxWidth: .infinity, alignment: .leading)
             Button(action: dismiss) { Image(systemName: "xmark") }
-                .accessibilityLabel("关闭")
+                .accessibilityLabel(L10n.text("关闭", "Dismiss"))
         }
         .foregroundStyle(Color(red: 0.61, green: 0.2, blue: 0.2))
         .padding(12)

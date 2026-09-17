@@ -22,12 +22,18 @@ let vite;
 if (production) {
   const site = resolve(root, 'site');
   const sendPage = name => (_req, res) => res.sendFile(resolve(site, name), { headers: { 'Cache-Control': 'no-cache' } });
+  app.get('/en', sendPage('en/index.html'));
+  app.get('/en/privacy', sendPage('en/privacy.html'));
+  app.get('/en/support', sendPage('en/support.html'));
+  app.get('/en/privacy.html', (_req, res) => res.redirect(308, '/en/privacy'));
+  app.get('/en/support.html', (_req, res) => res.redirect(308, '/en/support'));
   app.use(express.static(site, { index: false, dotfiles: 'deny', maxAge: '1h' }));
   app.get('/', sendPage('index.html'));
   app.get('/privacy', sendPage('privacy.html'));
   app.get('/support', sendPage('support.html'));
   app.get('/privacy.html', (_req, res) => res.redirect(308, '/privacy'));
   app.get('/support.html', (_req, res) => res.redirect(308, '/support'));
+  app.use('/en', (_req, res) => res.status(404).sendFile(resolve(site, 'en/404.html')));
   app.use((_req, res) => res.status(404).sendFile(resolve(site, '404.html')));
 } else {
   const { createServer: createViteServer } = await import('vite');

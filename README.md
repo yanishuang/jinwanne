@@ -22,6 +22,8 @@
 
 「今晚呢」是一款原生 iOS App，采用白蓝风格。首页只有「今晚发起了」，点击后立即选择「成功 / 失败」，选完直接保存。SwiftUI 工程位于 [ios/JinwanNe.xcodeproj](ios/JinwanNe.xcodeproj)，Node 服务端负责私人记录和匿名排行榜。
 
+同一句「今晚呢」，换到海外就是 **Tonight?**。应用界面按 Apple 商店地区切换：中国大陆（`CHN`）使用中文，其他地区使用英文；商店信息不可用时先沿用上次商店地区，没有缓存再看设备地区。不读取 GPS，也不按当前实际所在地判断。新建英文环境的匿名账号自动使用英文随机昵称，旧账号不会被自动改名，已有记录不变；全球仍统一按北京时间（UTC+8）计日。
+
 ## 运行 iOS App
 
 1. 用 Xcode 打开 `ios/JinwanNe.xcodeproj`。
@@ -77,7 +79,7 @@ npm start
 - 数据文件默认位于 `data/journal.sqlite`（运行后自动创建，已排除版本控制）。删除该目录会丢失全部账号和记录。
 - 环境变量：`PORT`、`HOST`、`DATABASE_PATH`、`APP_ORIGIN`、`COOKIE_SECURE`、`TRUST_PROXY`。示例见 `.env.example`，环境文件不会自动读取；可在启动命令中设置，或用 `node --env-file=.env server/index.mjs`。
 - 默认仅监听 `127.0.0.1:3000`。正式服务通过 Nginx 接收 HTTPS，再转发到服务器本机回环端口。
-- 正式站点静态文件位于 `site/`：`/` 为匿名排行榜，`/privacy` 为隐私政策，`/support` 为用户支持。公开排行榜只读，不创建身份或下发 Cookie；私人数据接口仍要求 App 的匿名身份。
+- 正式站点静态文件位于 `site/`：`/` 为匿名排行榜，`/privacy` 为隐私政策，`/support` 为用户支持；对应英文页面 `/en`、`/en/privacy`、`/en/support` 已部署。公开排行榜只读，不创建身份或下发 Cookie；私人数据接口仍要求 App 的匿名身份。
 - 公网运行必须启用 HTTPS，配置精确的 `APP_ORIGIN=https://实际域名`、`COOKIE_SECURE=true`。Nginx 与 Node 位于同一服务器时，Node 保持 `HOST=127.0.0.1`，并设置 `TRUST_PROXY=1`。部署方需要准备持久化磁盘、最小权限、加密与有保留期限的备份、隐私条款和删除备份策略；没有这些条件不应存放真实敏感记录。
 - SQLite 适合本首版的单实例部署。多实例部署需要共享数据库或改为服务型数据库；请求限速目前按单进程和 IP 计数。
 - 应用删除是数据库逻辑删除，备份、SQLite 空闲页或管理员留存副本不是应用删除承诺的一部分。需要强擦除保证时必须另行设计加密密钥销毁和备份生命周期。
@@ -87,6 +89,8 @@ npm start
 ## 接口
 
 `/api/session` 创建 / 续期匿名身份，其余私人接口均通过 Cookie 验证身份。写入需 JSON 和 `X-Journal-Request: 1` 请求头，并检查同源。
+
+App 通过 `X-Journal-Language: en` 请求英文错误提示和新账号的英文随机昵称；不带此请求头的旧客户端继续使用中文。语言选择不改变鉴权、数据格式或已有账号。
 
 | 方法 | 路径 | 用途 |
 | --- | --- | --- |
@@ -105,6 +109,6 @@ npm run check
 ./ios/Tests/run-data-flow-tests.sh
 ```
 
-集成测试使用隔离数据库，覆盖身份隔离、同日幂等与并发、输入验证、上海时区、排名并列与时间范围、退出排行、删除级联和重启持久化。iOS 测试还覆盖写入成功但后续读取失败、跨天/月、并发刷新与真实 URLSession 请求。Swift 测试需要 macOS 和 Xcode 命令行工具。构建时执行 TypeScript 检查。
+集成测试使用隔离数据库，覆盖身份隔离、同日幂等与并发、输入验证、上海时区、排名并列与时间范围、退出排行、删除级联、重启持久化，以及中英文兼容和公开页面不创建身份。iOS 测试还覆盖写入成功但后续读取失败、跨天/月、并发刷新、语言选择与真实 URLSession 请求。Swift 测试需要 macOS 和 Xcode 命令行工具。构建时执行 TypeScript 检查。
 
 选中的风格参考是 `design/styles/B-white-cobalt.png`，布局及文案按后续反馈调整。最新原生设计约束见根目录 `DESIGN.md`；`output/simple-home.png` 与 `output/simple-choice.png` 仅为旧版网页预览。界面是可交互组件，不是设计图片拼贴。

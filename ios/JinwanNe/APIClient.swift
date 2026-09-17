@@ -17,9 +17,14 @@ enum APIClientError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .invalidAddress: "服务端地址无效。"
-        case .invalidResponse: "服务器返回了无法识别的数据。"
-        case .server(let message): message
+        case .invalidAddress: return L10n.text("服务端地址无效。", "The server address is invalid.")
+        case .invalidResponse: return L10n.text("服务器返回了无法识别的数据。", "The server returned an unreadable response.")
+        case .server(let message):
+            // Older server versions may still return Chinese errors during rollout.
+            if !L10n.isChinese, message.range(of: "\\p{Han}", options: .regularExpression) != nil {
+                return "Something went wrong. Please try again."
+            }
+            return message
         }
     }
 }
@@ -65,13 +70,14 @@ final class APIClient: JournalAPI, @unchecked Sendable {
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("1", forHTTPHeaderField: "X-Journal-Request")
+        request.setValue(L10n.language.rawValue, forHTTPHeaderField: "X-Journal-Language")
         request.httpBody = body
 
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw APIClientError.invalidResponse }
         let decoder = JSONDecoder()
         guard 200..<300 ~= http.statusCode else {
-            let message = (try? decoder.decode(ErrorResponse.self, from: data).error) ?? "操作失败，请稍后重试。"
+            let message = (try? decoder.decode(ErrorResponse.self, from: data).error) ?? L10n.text("操作失败，请稍后重试。", "Something went wrong. Please try again.")
             throw APIClientError.server(message)
         }
         guard let decoded = try? decoder.decode(Response.self, from: data) else {

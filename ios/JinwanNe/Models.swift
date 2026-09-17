@@ -5,7 +5,7 @@ enum Outcome: String, Codable, CaseIterable, Identifiable {
     case declined
 
     var id: String { rawValue }
-    var title: String { self == .success ? "成功" : "失败" }
+    var title: String { self == .success ? L10n.text("成功", "Yes") : L10n.text("失败", "Not tonight") }
 }
 
 struct Profile: Codable, Equatable {
@@ -63,12 +63,12 @@ enum RankingPeriod: String, CaseIterable, Identifiable {
     case month, year, all
     var id: String { rawValue }
     var title: String {
-        switch self { case .month: "本月"; case .year: "今年"; case .all: "全部" }
+        switch self { case .month: L10n.text("本月", "Month"); case .year: L10n.text("今年", "Year"); case .all: L10n.text("全部", "All time") }
     }
 }
 
 extension String {
-    var chineseDayLabel: String {
+    var localizedDayLabel: String {
         let parser = DateFormatter()
         parser.calendar = Calendar(identifier: .gregorian)
         parser.locale = Locale(identifier: "en_US_POSIX")
@@ -76,9 +76,9 @@ extension String {
         parser.dateFormat = "yyyy-MM-dd"
         guard let date = parser.date(from: self) else { return self }
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "zh_CN")
+        formatter.locale = L10n.locale
         formatter.timeZone = parser.timeZone
-        formatter.dateFormat = "M 月 d 日 · EEEE"
+        formatter.dateFormat = L10n.text("M 月 d 日 · EEEE", "EEE, MMM d")
         return formatter.string(from: date)
     }
 }

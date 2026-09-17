@@ -24,6 +24,11 @@ final class AppModel: ObservableObject {
 
     var canSave: Bool { session != nil && !isSaving && !isLoading }
 
+    func clearPresentationMessages() {
+        errorMessage = nil
+        refreshWarning = nil
+    }
+
     var todayEntry: Entry? {
         guard let today = session?.today else { return nil }
         return diary?.records.first { $0.date == today }
@@ -43,7 +48,7 @@ final class AppModel: ObservableObject {
             acceptSession(try await api.openSession())
             try await loadCurrentMonth()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = L10n.errorMessage(error)
         }
     }
 
@@ -82,7 +87,7 @@ final class AppModel: ObservableObject {
             // so changing a result never silently erases an existing note.
             if loadedMonth != String(today.prefix(7)) { try await loadCurrentMonth() }
             guard loadedMonth == String(today.prefix(7)), diary != nil else {
-                throw APIClientError.server("本月记录还未读取完成，请稍后再试。")
+                throw APIClientError.server(L10n.text("本月记录还未读取完成，请稍后再试。", "This month’s records haven’t loaded yet. Please try again."))
             }
             let note = todayEntry?.note ?? ""
             try await api.save(date: today, outcome: outcome, note: note)
@@ -92,7 +97,7 @@ final class AppModel: ObservableObject {
             await refreshAfterConfirmedChange(date: today, deleted: false)
             return true
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = L10n.errorMessage(error)
             return false
         }
     }
@@ -112,7 +117,7 @@ final class AppModel: ObservableObject {
             await refreshAfterConfirmedChange(date: date, deleted: false)
             return true
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = L10n.errorMessage(error)
             return false
         }
     }
@@ -134,7 +139,7 @@ final class AppModel: ObservableObject {
             await refreshAfterConfirmedChange(date: date, deleted: true)
             return true
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = L10n.errorMessage(error)
             return false
         }
     }
@@ -149,7 +154,7 @@ final class AppModel: ObservableObject {
             session = SessionResponse(profile: profile, today: current.today, timezone: current.timezone)
             return true
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = L10n.errorMessage(error)
             return false
         }
     }
@@ -164,7 +169,7 @@ final class AppModel: ObservableObject {
             session = SessionResponse(profile: profile, today: current.today, timezone: current.timezone)
             return true
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = L10n.errorMessage(error)
             return false
         }
     }
@@ -185,7 +190,7 @@ final class AppModel: ObservableObject {
             await bootstrap()
             return true
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = L10n.errorMessage(error)
             isSaving = false
             return false
         }
@@ -244,8 +249,8 @@ final class AppModel: ObservableObject {
         } catch {
             // The mutation is already confirmed. A failed GET is not a failed write.
             refreshWarning = deleted
-                ? "记录已从服务器删除，统计暂未刷新。下拉刷新可重试。"
-                : "记录已保存到服务器，统计暂未刷新。下拉刷新可重试。"
+                ? L10n.text("记录已从服务器删除，统计暂未刷新。下拉刷新可重试。", "Deleted from the server. Totals haven’t refreshed yet. Pull down to retry.")
+                : L10n.text("记录已保存到服务器，统计暂未刷新。下拉刷新可重试。", "Saved to the server. Totals haven’t refreshed yet. Pull down to retry.")
         }
     }
 }

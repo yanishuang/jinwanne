@@ -17,8 +17,8 @@ async function setup(t, options = {}) {
   const base = `http://127.0.0.1:${server.address().port}`;
   const stop = async () => { await new Promise(resolve => server.close(resolve)); db.close(); };
   if (!options.manualClose) t.after(stop);
-  const request = async (path, { cookie, method = 'GET', body, headers = {} } = {}) => {
-    const response = await fetch(base + '/api' + path, { method, headers: { 'Content-Type': 'application/json', 'X-Journal-Request': '1', ...(cookie ? { Cookie: cookie } : {}), ...headers }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+  const request = async (path, { cookie, method = 'GET', body, rawBody, headers = {} } = {}) => {
+    const response = await fetch(base + '/api' + path, { method, headers: { 'Content-Type': 'application/json', 'X-Journal-Request': '1', ...(cookie ? { Cookie: cookie } : {}), ...headers }, ...(rawBody !== undefined ? { body: rawBody } : body === undefined ? {} : { body: JSON.stringify(body) }) });
     return { status: response.status, data: await response.json(), headers: response.headers };
   };
   const newUser = async () => {
@@ -232,4 +232,84 @@ test('server date boundaries follow Shanghai instead of host or browser timezone
   assert.equal(periodStart('year', '2027-01-01'), '2027-01-01');
   assert.ok(validDay('2024-02-29', '2026-08-31'));
   assert.equal(validDay('2026-02-29', '2026-08-31'), false);
+});
+
+test('English sessions use valid English aliases without renaming existing identities', async t => {
+  const { request, newUser, put, db } = await setup(t);
+  const headers = { 'X-Journal-Language': 'en' };
+  const chinese = await newUser();
+  assert.match(chinese.profile.alias, /\p{Script=Han}/u);
+  const same = await request('/session', { method: 'POST', cookie: chinese.cookie, body: {}, headers });
+  assert.equal(same.data.profile.alias, chinese.profile.alias);
+  const english = await request('/session', { method: 'POST', body: {}, headers });
+  assert.equal(english.status, 200);
+  assert.match(english.data.profile.alias, /^[A-Za-z]+ · [A-F0-9]{8}$/);
+  assert.ok([...english.data.profile.alias].length <= 16);
+  assert.equal(english.data.profile.participating, false);
+  assert.equal(english.headers.get('content-language'), 'en');
+  assert.match(english.headers.get('vary'), /X-Journal-Language/);
+  const cookie = english.headers.get('set-cookie').split(';')[0];
+  await put(cookie, '2026-08-31', 'success');
+  assert.equal((await request('/leaderboard', { headers })).data.rows.length, 0);
+  const rename = await request('/profile', { method: 'PATCH', cookie: chinese.cookie, body: { alias: '' }, headers });
+  assert.match(rename.data.profile.alias, /^[A-Za-z]+ · [A-F0-9]{8}$/);
+  const duplicate = await request('/profile', { method: 'PATCH', cookie, body: { alias: rename.data.profile.alias.toLowerCase() }, headers });
+  assert.equal(duplicate.status, 409);
+  assert.match(duplicate.data.error, /username is taken/);
+  assert.equal(db.prepare('SELECT COUNT(*) AS n FROM users').get().n, 2);
+  // Language changes display only: the existing deletion protocol stays compatible.
+  const deleted = await request('/account', { method: 'DELETE', cookie, body: { confirmation: '删除' }, headers });
+  assert.equal(deleted.status, 200);
+});
+
+test('English errors cover validation, security, parser, and not-found boundaries', async t => {
+  const { request, newUser } = await setup(t);
+  const { cookie } = await newUser();
+  const headers = { 'X-Journal-Language': 'en' };
+  const cases = [
+    ['/records', {}, 401, /session has expired/],
+    ['/session', { method: 'POST', body: {}, headers: { 'X-Journal-Request': '' } }, 403, /request source/],
+    ['/session', { method: 'POST', body: {}, headers: { 'Content-Type': 'text/plain' } }, 415, /JSON/],
+    ['/session', { method: 'POST', rawBody: '{bad' }, 400, /request format/],
+    ['/session', { method: 'POST', body: { data: 'a'.repeat(9000) } }, 413, /too large/],
+    ['/records?month=nope', { cookie }, 400, /month/],
+    ['/records/2999-01-01', { cookie, method: 'PUT', body: { outcome: 'success' } }, 400, /Future dates/],
+    ['/records/2026-08-31', { cookie, method: 'PUT', body: { outcome: 'unknown' } }, 400, /outcome/],
+    ['/records/invalid', { cookie, method: 'DELETE', body: {} }, 400, /date/],
+    ['/profile', { cookie, method: 'PATCH', body: { unknown: true } }, 400, /profile/],
+    ['/profile', { cookie, method: 'PATCH', body: { participating: 'yes' } }, 400, /whether to join/],
+    ['/profile', { cookie, method: 'PATCH', body: { alias: 1 } }, 400, /username/],
+    ['/profile', { cookie, method: 'PATCH', body: { alias: 'a' } }, 400, /2–16/],
+    ['/profile', { cookie, method: 'PATCH', body: { alias: '<script>' } }, 400, /letters, numbers/],
+    ['/leaderboard?metric=bad', {}, 400, /filters/],
+    ['/account', { cookie, method: 'DELETE', body: {} }, 400, /confirm permanent deletion/],
+    ['/missing', {}, 404, /Endpoint not found/],
+  ];
+  for (const [path, options, status, expected] of cases) {
+    const result = await request(path, { ...options, headers: { ...headers, ...options.headers } });
+    assert.equal(result.status, status, path);
+    assert.match(result.data.error, expected, path);
+    assert.doesNotMatch(result.data.error, /\p{Script=Han}/u, path);
+  }
+  // Older clients and unknown language values retain the Chinese response.
+  for (const lang of [undefined, 'zh-Hans', 'fr', 'english']) {
+    const result = await request('/missing', { headers: lang ? { 'X-Journal-Language': lang } : {} });
+    assert.equal(result.data.error, '接口不存在。');
+    assert.equal(result.headers.get('content-language'), 'zh-Hans');
+  }
+});
+
+test('rate limiting keeps its limits and returns the requested language', async t => {
+  const { request } = await setup(t, { limit: true });
+  const headers = { 'X-Journal-Language': 'en' };
+  for (let i = 0; i < 30; i += 1) assert.equal((await request('/session', { method: 'POST', body: {}, headers })).status, 200);
+  const sessions = await request('/session', { method: 'POST', body: {}, headers });
+  assert.equal(sessions.status, 429);
+  assert.match(sessions.data.error, /Too many new sessions/);
+  // 31 requests used above; the general per-minute limit remains 240.
+  for (let i = 31; i < 240; i += 1) assert.equal((await request('/health', { headers })).status, 200);
+  const general = await request('/health', { headers });
+  assert.equal(general.status, 429);
+  assert.match(general.data.error, /Too many requests/);
+  assert.equal((await request('/health')).data.error, '操作太频繁，请稍后再试。');
 });

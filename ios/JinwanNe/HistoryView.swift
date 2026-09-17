@@ -16,7 +16,7 @@ struct HistoryView: View {
     var body: some View {
         List {
             Section {
-                Picker("查看月份", selection: $month) {
+                Picker(L10n.text("查看月份", "Month"), selection: $month) {
                     ForEach(availableMonths, id: \.self) { Text(monthLabel($0)).tag($0) }
                 }
                 .disabled(model.isSaving)
@@ -25,40 +25,40 @@ struct HistoryView: View {
             if loading {
                 HStack { Spacer(); ProgressView(); Spacer() }
             } else if let errorMessage {
-                ContentUnavailableView("暂时无法读取", systemImage: "wifi.exclamationmark", description: Text(errorMessage))
-                Button("重新读取") { Task { await load() } }
+                ContentUnavailableView(L10n.text("暂时无法读取", "Couldn’t open your diary"), systemImage: "wifi.exclamationmark", description: Text(errorMessage))
+                Button(L10n.text("重新读取", "Try again")) { Task { await load() } }
             } else if let diary {
                 Section {
                     HStack {
-                        stat(title: "成功天数", value: diary.stats.success)
+                        stat(title: L10n.text("成功天数", "Yes nights"), value: diary.stats.success)
                         Divider()
-                        stat(title: "被拒绝天数", value: diary.stats.declined)
+                        stat(title: L10n.text("被拒绝天数", "Rain checks"), value: diary.stats.declined)
                     }
                     .frame(height: 82)
                 }
 
-                Section("每日结果") {
+                Section(L10n.text("每日结果", "Day by day")) {
                     if diary.records.isEmpty {
-                        Text("小本本还是空的。首页选好结果，这里就有记录了。")
+                        Text(L10n.text("小本本还是空的。首页选好结果，这里就有记录了。", "A blank page for now. Pick a result on the home screen to make your first entry."))
                             .foregroundStyle(AppPalette.muted)
                     }
                     ForEach(diary.records) { entry in
                         HStack {
-                            Text(entry.date.chineseDayLabel).font(.subheadline)
+                            Text(entry.date.localizedDayLabel).font(.subheadline)
                             Spacer()
                             Text(entry.outcome.title)
                                 .font(.subheadline.weight(.medium))
                                 .foregroundStyle(AppPalette.blue)
                         }
                         .swipeActions(edge: .trailing) {
-                            Button("删除", role: .destructive) { deleting = entry }
+                            Button(L10n.text("删除", "Delete"), role: .destructive) { deleting = entry }
                                 .disabled(!model.canSave)
                         }
                         .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                            Button("成功") { Task { await change(entry, to: .success) } }
+                            Button(Outcome.success.title) { Task { await change(entry, to: .success) } }
                                 .tint(AppPalette.blue)
                                 .disabled(!model.canSave)
-                            Button("失败") { Task { await change(entry, to: .declined) } }
+                            Button(Outcome.declined.title) { Task { await change(entry, to: .declined) } }
                                 .tint(AppPalette.muted)
                                 .disabled(!model.canSave)
                         }
@@ -66,22 +66,22 @@ struct HistoryView: View {
                 }
             }
         }
-        .navigationTitle("我的小本本")
+        .navigationTitle(L10n.text("我的小本本", "My little diary"))
         .refreshable { await load() }
         .navigationBarTitleDisplayMode(.inline)
         .task {
             if month.isEmpty { month = model.session.map { String($0.today.prefix(7)) } ?? "" }
         }
         .task(id: taskKey) { await load() }
-        .alert("删除这一天？", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
-            Button("删除", role: .destructive) {
+        .alert(L10n.text("删除这一天？", "Delete this day?"), isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } })) {
+            Button(L10n.text("删除", "Delete"), role: .destructive) {
                 guard let deleting else { return }
                 Task { await remove(deleting) }
             }
             .disabled(!model.canSave)
-            Button("取消", role: .cancel) { deleting = nil }
+            Button(L10n.text("取消", "Cancel"), role: .cancel) { deleting = nil }
         } message: {
-            Text("统计和排行榜也会随之更新。")
+            Text(L10n.text("统计和排行榜也会随之更新。", "Your totals and leaderboard position will update too."))
         }
     }
 
@@ -103,13 +103,17 @@ struct HistoryView: View {
     private func monthLabel(_ value: String) -> String {
         let parts = value.split(separator: "-")
         guard parts.count == 2 else { return value }
-        return "\(parts[0]) 年 \(Int(parts[1]) ?? 0) 月"
+        guard let year = Int(parts[0]), let month = Int(parts[1]), (1...12).contains(month) else { return value }
+        if L10n.isChinese { return "\(year) 年 \(month) 月" }
+        let formatter = DateFormatter()
+        formatter.locale = L10n.locale
+        return "\(formatter.monthSymbols[month - 1]) \(year)"
     }
 
     private func stat(title: String, value: Int) -> some View {
         VStack(spacing: 7) {
             Text(title).font(.caption).foregroundStyle(AppPalette.muted)
-            Text("\(value) 天").font(.title2.weight(.semibold)).foregroundStyle(AppPalette.blue)
+            Text(L10n.text("\(value) 天", "\(value) \(value == 1 ? "day" : "days")")).font(.title2.weight(.semibold)).foregroundStyle(AppPalette.blue)
         }
         .frame(maxWidth: .infinity)
     }
@@ -135,7 +139,7 @@ struct HistoryView: View {
         } catch {
             guard !Task.isCancelled, requestID == id,
                   month == requestedMonth, model.recordsRevision == revision else { return }
-            errorMessage = error.localizedDescription
+            errorMessage = L10n.errorMessage(error)
         }
     }
 

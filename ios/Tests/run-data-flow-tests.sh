@@ -8,9 +8,11 @@ cleanup() {
   rm -rf "$workdir"
 }
 trap cleanup EXIT HUP INT TERM
-xcrun swiftc -swift-version 5 -parse-as-library ios/JinwanNe/Models.swift ios/JinwanNe/APIClient.swift ios/JinwanNe/AppModel.swift ios/Tests/AppModelRegression.swift -o "$workdir/model-tests"
-"$workdir/model-tests"
-xcrun swiftc -swift-version 5 -parse-as-library ios/JinwanNe/Models.swift ios/JinwanNe/APIClient.swift ios/Tests/APIClientIntegration.swift -o "$workdir/api-tests"
+xcrun swiftc -swift-version 5 -parse-as-library ios/JinwanNe/AppLanguage.swift ios/JinwanNe/Models.swift ios/JinwanNe/APIClient.swift ios/Tests/LanguageRegression.swift -o "$workdir/language-tests"
+"$workdir/language-tests"
+xcrun swiftc -swift-version 5 -parse-as-library ios/JinwanNe/AppLanguage.swift ios/JinwanNe/Models.swift ios/JinwanNe/APIClient.swift ios/JinwanNe/AppModel.swift ios/Tests/AppModelRegression.swift -o "$workdir/model-tests"
+"$workdir/model-tests" -jinwanne.interfaceLanguage zh-Hans
+xcrun swiftc -swift-version 5 -parse-as-library ios/JinwanNe/AppLanguage.swift ios/JinwanNe/Models.swift ios/JinwanNe/APIClient.swift ios/Tests/APIClientIntegration.swift -o "$workdir/api-tests"
 node ios/Tests/local-api-fixture.mjs "$workdir/address" > "$workdir/server.log" 2>&1 &
 fixture_pid=$!
 tries=0
